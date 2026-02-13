@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ================= BRAND COLORS ================= */
+:root {
+  --brand-blue: #2563eb;   /* Primary */
+  --brand-orange: #f97316; /* Accent */
+}
+
+.bg-brandBlue {
+  background-color: var(--brand-blue);
+}
+
+.text-brandOrange {
+  color: var(--brand-orange);
+}
+
+.border-brandOrange {
+  border-color: var(--brand-orange);
+}
+
+/* ================= BASE ================= */
+body {
+  @apply bg-gray-50 text-gray-800 antialiased;
+}
+
+/* ================= UI POLISH ================= */
+button {
+  @apply transition-all duration-200 ease-in-out;
+}
+
+.input {
+  @apply w-full border border-gray-300 rounded-lg px-3 py-2 mt-1 focus:ring-2 focus:ring-blue-500 focus:outline-none;
+}
+
+.card {
+  @apply bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition;
+}
