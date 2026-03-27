@@ -1,7 +1,8 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { useContext, useState, useRef, useEffect } from "react";
-import { UserContext } from "../context/UserContext";
+import { UserContext } from "../context/userContext";
 import logo from "../assets/vt-logo.png";
+import { logoutRequest } from "../api/auth";
 
 export default function TopBar() {
   const { user, setUser } = useContext(UserContext);
@@ -28,8 +29,30 @@ export default function TopBar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  function handleLogout() {
-    setUser({ isLoggedIn: false });
+  async function handleLogout() {
+    const token = user.accessToken || localStorage.getItem("vt_user_auth_token");
+
+    if (token) {
+      try {
+        await logoutRequest(token);
+      } catch {
+        // Ignore backend failures; local logout still applies.
+      }
+    }
+
+    setUser({
+      id: "",
+      name: "",
+      email: "",
+      phone: "",
+      address: "",
+      image: "",
+      role: "user",
+      accessToken: "",
+      refreshToken: "",
+      isLoggedIn: false,
+    });
+
     navigate("/login");
   }
 

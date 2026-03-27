@@ -1,7 +1,8 @@
 import { useState, useContext } from "react";
 import { useNavigate } from "react-router-dom";
-import { UserContext } from "../context/UserContext";
+import { UserContext } from "../context/userContext";
 import profileImg from "../assets/profile.png";
+import { signupRequest } from "../api/auth";
 
 export default function Signup() {
   const { setUser } = useContext(UserContext);
@@ -10,20 +11,60 @@ export default function Signup() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  function handleSignup(e) {
+  async function handleSignup(e) {
     e.preventDefault();
 
-    setUser({
-      name,
-      email,
-      phone: "",
-      address: "",
-      image: profileImg, // ✅ constant image
-      isLoggedIn: true,
-    });
+    try {
+      setError("");
+      setIsSubmitting(true);
 
-    navigate("/home");
+      const data = await signupRequest({
+        name: name.trim(),
+        email: email.trim(),
+        password,
+        role: "user",
+      });
+
+      if (!data.user) {
+        throw new Error(data.message || "Unable to create account. Please try again.");
+      }
+
+      if (data.requiresEmailVerification || !data.accessToken) {
+        navigate("/login", {
+          replace: true,
+          state: {
+            message: data.message || "Account created. Please verify your email before login.",
+            email: data.user.email || email.trim(),
+          },
+        });
+        return;
+      }
+
+      setUser({
+        id: data.user.id,
+        name: data.user.name || name.trim(),
+        email: data.user.email || email.trim(),
+        phone: "",
+        address: "",
+        image: profileImg,
+        role: data.user.role || "user",
+        accessToken: data.accessToken,
+        refreshToken: data.refreshToken || "",
+        isLoggedIn: true,
+      });
+
+      navigate("/home");
+    } catch (requestError) {
+      const message =
+        requestError?.response?.data?.message ||
+        (requestError instanceof Error ? requestError.message : "Signup failed");
+      setError(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -51,7 +92,9 @@ export default function Signup() {
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
+                  placeholder="Enter your full name"
                   required
+                  autoComplete="name"
                   className="w-full border rounded-lg px-4 py-2"
                 />
               </div>
@@ -62,7 +105,9 @@ export default function Signup() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter your email"
                   required
+                  autoComplete="email"
                   className="w-full border rounded-lg px-4 py-2"
                 />
               </div>
@@ -73,17 +118,22 @@ export default function Signup() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Create a password"
                   required
+                  minLength={6}
+                  autoComplete="new-password"
                   className="w-full border rounded-lg px-4 py-2"
                 />
               </div>
 
               <button
                 type="submit"
+                disabled={isSubmitting}
                 className="w-full bg-blue-600 text-white py-2 rounded-lg"
               >
-                Create Account
+                {isSubmitting ? "Creating account..." : "Create Account"}
               </button>
+              {error ? <p className="text-sm text-red-600">{error}</p> : null}
             </form>
           </div>
 

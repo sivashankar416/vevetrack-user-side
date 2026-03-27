@@ -1,12 +1,13 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useContext } from "react";
-import { UserContext } from "./context/UserContext";
+import { UserContext } from "./context/userContext";
 
 import MainLayout from "./layout/MainLayout";
 
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import AuthCallback from "./pages/AuthCallback";
 import MyBookings from "./pages/MyBookings";
 import Notifications from "./pages/Notifications";
 import Profile from "./pages/Profile";
@@ -26,6 +27,7 @@ export default function App() {
       {/* PUBLIC */}
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
+      <Route path="/auth/callback" element={<AuthCallback />} />
 
       {/* PROTECTED + LAYOUT */}
       <Route
