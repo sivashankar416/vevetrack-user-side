@@ -53,7 +53,7 @@ export default function UpcomingBookingCard({ booking }) {
 
       {/* DRIVER */}
       <p className="text-sm text-gray-600 mb-5">
-        Driver: <span className="font-medium">{booking.driver}</span>
+        Driver: <span className="font-medium">{booking.driver || "To be assigned"}</span>
       </p>
 
       {/* ACTIONS */}

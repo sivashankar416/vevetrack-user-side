@@ -1,10 +1,6 @@
-import { useState, useEffect } from "react";
-import {
-  stats,
-  currentTrip,
-  upcomingBookings,
-  tripHistory,
-} from "../data/bookings";
+import { useContext, useEffect, useMemo, useState } from "react";
+import { UserContext } from "../context/userContext";
+import { getBookingsRequest } from "../api/bookings";
 
 import StatsCards from "../components/Booking/StatsCards";
 import BookingTabs from "../components/Booking/BookingTabs";
@@ -14,64 +10,166 @@ import TripHistoryCard from "../components/Booking/TripHistoryCard";
 
 export default function MyBookings() {
   const [activeTab, setActiveTab] = useState("upcoming");
-  const [dynamicUpcoming, setDynamicUpcoming] = useState(upcomingBookings);
+  const [bookings, setBookings] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
+  const { user } = useContext(UserContext);
 
   useEffect(() => {
-  const latest = localStorage.getItem("latestBooking");
-  if (latest) {
-    setDynamicUpcoming((prev) => [
-      JSON.parse(latest),
-      ...prev,
-    ]);
-    localStorage.removeItem("latestBooking");
-  }
-}, []);
+    let ignore = false;
 
+    const loadBookings = async () => {
+      try {
+        setIsLoading(true);
+        setError("");
+
+        const response = await getBookingsRequest({
+          userId: user.id,
+          customerEmail: user.email,
+          type: "online",
+        });
+
+        if (!ignore) {
+          setBookings(response.bookings || []);
+        }
+      } catch (requestError) {
+        if (!ignore) {
+          setError(
+            requestError?.response?.data?.message || "Unable to load your bookings right now."
+          );
+        }
+      } finally {
+        if (!ignore) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    if (user.id || user.email) {
+      loadBookings();
+    } else {
+      setIsLoading(false);
+    }
+
+    return () => {
+      ignore = true;
+    };
+  }, [user.id, user.email]);
+
+  const upcomingBookings = useMemo(
+    () => bookings.filter((booking) => ["Pending", "Scheduled"].includes(booking.status)),
+    [bookings]
+  );
+
+  const currentBooking = useMemo(
+    () => bookings.find((booking) => booking.status === "Ongoing") || null,
+    [bookings]
+  );
+
+  const tripHistory = useMemo(
+    () => bookings.filter((booking) => ["Completed", "Cancelled"].includes(booking.status)),
+    [bookings]
+  );
+
+  const currentTrip = useMemo(() => {
+    if (!currentBooking) return null;
+
+    return {
+      id: currentBooking.id,
+      date: currentBooking.date,
+      timeRange: currentBooking.time,
+      pickup: currentBooking.pickup,
+      drop: currentBooking.drop,
+      driver: {
+        name: currentBooking.driver || "To be assigned",
+        phone: "-",
+        rating: "-",
+      },
+      vehicle: {
+        carId: currentBooking.id,
+        type: currentBooking.carType || currentBooking.requestedVehicle || "Not assigned",
+        model: currentBooking.vehicleType || "Not assigned",
+      },
+    };
+  }, [currentBooking]);
+
+  const stats = useMemo(() => {
+    const totalTrips = bookings.length;
+    const completedTrips = tripHistory.filter((trip) => trip.status === "Completed").length;
+
+    return {
+      totalTrips,
+      completedTrips,
+      rating: 4.4,
+    };
+  }, [bookings, tripHistory]);
 
   return (
-    <div className="bg-[#f5f7fb] min-h-screen">
-      <div className="max-w-7xl mx-auto px-6 py-8">
-
-        {/* PAGE HEADER */}
+    <div className="min-h-screen bg-[#f5f7fb]">
+      <div className="mx-auto max-w-7xl px-6 py-8">
         <div className="mb-8">
           <h1 className="text-2xl font-bold">My Bookings</h1>
-          <p className="text-gray-500 text-sm mt-1">
+          <p className="mt-1 text-sm text-gray-500">
             View and manage your current, upcoming and past trips
           </p>
         </div>
 
-        {/* STATS */}
         <StatsCards stats={stats} />
 
-        {/* TABS */}
-        <BookingTabs
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-        />
+        <BookingTabs activeTab={activeTab} setActiveTab={setActiveTab} />
 
-        {/* TAB CONTENT */}
         <div className="mt-6">
           {activeTab === "current" && (
-            <CurrentTripCard trip={currentTrip} />
+            <>
+              {isLoading ? <p className="text-sm text-gray-500">Loading bookings...</p> : null}
+              {error ? <p className="text-sm text-red-600">{error}</p> : null}
+              {!isLoading && !error && !currentTrip ? (
+                <div className="rounded-xl border bg-white p-6 text-sm text-gray-500">
+                  No ongoing trip found.
+                </div>
+              ) : null}
+              {!isLoading && !error && currentTrip ? <CurrentTripCard trip={currentTrip} /> : null}
+            </>
           )}
 
           {activeTab === "upcoming" && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {dynamicUpcoming.map((b) => (
-                <UpcomingBookingCard key={b.id} booking={b} />
-              ))}
-            </div>
+            <>
+              {isLoading ? <p className="text-sm text-gray-500">Loading bookings...</p> : null}
+              {error ? <p className="text-sm text-red-600">{error}</p> : null}
+              {!isLoading && !error && upcomingBookings.length === 0 ? (
+                <div className="rounded-xl border bg-white p-6 text-sm text-gray-500">
+                  No upcoming bookings found.
+                </div>
+              ) : null}
+              {!isLoading && !error && upcomingBookings.length > 0 ? (
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                  {upcomingBookings.map((booking) => (
+                    <UpcomingBookingCard key={booking.id} booking={booking} />
+                  ))}
+                </div>
+              ) : null}
+            </>
           )}
 
           {activeTab === "history" && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {tripHistory.map((t) => (
-                <TripHistoryCard key={t.id} trip={t} />
-              ))}
-            </div>
+            <>
+              {isLoading ? <p className="text-sm text-gray-500">Loading bookings...</p> : null}
+              {error ? <p className="text-sm text-red-600">{error}</p> : null}
+              {!isLoading && !error && tripHistory.length === 0 ? (
+                <div className="rounded-xl border bg-white p-6 text-sm text-gray-500">
+                  No booking history found.
+                </div>
+              ) : null}
+              {!isLoading && !error && tripHistory.length > 0 ? (
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                  {tripHistory.map((trip) => (
+                    <TripHistoryCard key={trip.id} trip={trip} />
+                  ))}
+                </div>
+              ) : null}
+            </>
           )}
         </div>
-
       </div>
     </div>
   );
